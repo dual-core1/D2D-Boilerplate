@@ -2,13 +2,15 @@
 #include <windows.h>
 #include <d2d1.h>
 
+#include "init_dinput.h"
+
 LPCWSTR CLASS_NAME = L"Direct2D Window Class";
 
 // forward declaration of wndproc
 LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 int wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPWSTR lpCmdLine, int nCmdShow) {
-    // 1. create + register window class
+    // create + register window class
     WNDCLASSEX wc = {};
     wc.cbSize = sizeof(WNDCLASSEX);
     wc.lpfnWndProc = WndProc;
@@ -17,13 +19,13 @@ int wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPWSTR lpCmdLine, int nCmdSho
     wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
     RegisterClassExW(&wc);
 
-    // 2. create window
+    // create window
     HWND hWnd = CreateWindow(CLASS_NAME, L"Direct2D Window", WS_OVERLAPPED,
     CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, NULL, NULL, hInst, NULL);
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
-    // 3. initialize direct 2d
+    // initialize direct 2d
 
     // create factory
     ID2D1Factory* pD2DFactory = NULL;
@@ -50,7 +52,11 @@ int wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPWSTR lpCmdLine, int nCmdSho
     if (FAILED(hr))
         return -1;
 
-    // 4. main loop + issue drawing commands
+    // initialize direct input
+    if (!InitDI(hInst, hWnd))
+        return -1;
+
+    // main loop + issue drawing commands
     MSG msg = {};
 
     while (msg.message != WM_QUIT) {
@@ -58,6 +64,16 @@ int wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPWSTR lpCmdLine, int nCmdSho
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        
+        // process input here!
+        ReadKeyboardState();
+
+        // exit on escape pressed
+        if (keyboardState[DIK_ESCAPE] & 0x80) {
+            ExitProcess(0);
+        }
+
+        // update state here!
 
         pRenderTarget->BeginDraw();
         pRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::Black));
@@ -66,6 +82,9 @@ int wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPWSTR lpCmdLine, int nCmdSho
 
         pRenderTarget->EndDraw();
     }
+
+    // shut down direct input
+    ShutdownDI();
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
